@@ -4,9 +4,10 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     items: [ {xtype: 'container', itemId: 'chart_box'}, {xtype:'container',itemId:'table_box'} ],
     valid_verdicts: [ "Not Run" ],
-    first_day: '2012-10-21',
-    last_day: '2012-11-21',
+
     launch: function() {
+        this.first_day = '2012-10-21',
+        this.last_day = '2012-11-21',
         this._getVerdictNames();
     },
     _getVerdictNames: function() {
@@ -32,31 +33,30 @@ Ext.define('CustomApp', {
     				var that = this;
     				var tc_result_counts = {};
     				Ext.Array.each( data, function( tc ) {
-    					console.log( tc.data.Name );
-    					tc_result_counts[ tc.data.FormattedID ] = that.getVerdictsByDay(tc.data.Results); 
+    					console.log( tc );
+    					tc_result_counts[ tc.data.FormattedID ] = that.getVerdictsByDay(tc.data.Results, Rally.util.DateTime.toIsoString(tc.data.CreationDate, false)); 
     				});
     				var tc_result_counts_by_date = that.getResultCountsByDate( tc_result_counts );
                     that.makeChart(tc_result_counts_by_date);
     			}
     		},
-    		fetch: ['Name','FormattedID','Results','Date','Verdict'],
+    		fetch: ['Name','FormattedID','Results','Date','Verdict','CreationDate'],
     		autoLoad: true
     	});
     },
     /* given an array of test case results,  
      * return a hash where key is date and value is the last verdict that day
      */
-    getVerdictsByDay: function( results ) {
-    	console.log( results );
+    getVerdictsByDay: function( results, creation_date ) {
     	var tc_verdicts_by_day = {};
     	Ext.Array.each( results, function(tcr) {
     		// adjust date for timezone, remove time
     		var run_date = Rally.util.DateTime.toIsoString(Rally.util.DateTime.fromIsoString(tcr.Date), false).replace(/T[\W\w]*/,"");
     		tc_verdicts_by_day[ run_date ] = tcr.Verdict;
-    		console.log( run_date, tcr.Verdict );
     	});
-    	console.log( tc_verdicts_by_day );
-    	tc_verdicts_by_day = this.fillInDates(this.first_day,this.last_day,tc_verdicts_by_day);
+        var earliest_day = this.first_day;
+        if ( earliest_day < creation_date ) { earliest_day = creation_date.replace(/T[\W\w]*/,""); }
+    	tc_verdicts_by_day = this.fillInDates(earliest_day,this.last_day,tc_verdicts_by_day);
     	return tc_verdicts_by_day;
     },
     /*
@@ -64,7 +64,6 @@ Ext.define('CustomApp', {
      * returns a count of verdicts by date
      */
     getResultCountsByDate: function( tc_result_counts ) {
-    	console.log( tc_result_counts );
     	var counts = {}; // key is date
     	for ( var tc in tc_result_counts ) {
     		if ( tc_result_counts.hasOwnProperty(tc) ) {
@@ -84,11 +83,9 @@ Ext.define('CustomApp', {
     			}
     		}
     	}
-    	console.log(counts);
     	return counts;
     },
     fillInDates: function(first_day,last_day,tc_verdicts_by_day){
-    	console.log( "fillDates", first_day, last_day, tc_verdicts_by_day );
     	var filled_day = {};
     	var day = first_day;
     	var current_verdict = null;
