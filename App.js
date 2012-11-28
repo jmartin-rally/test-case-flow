@@ -6,8 +6,9 @@ Ext.define('CustomApp', {
     valid_verdicts: [ "Not Run" ],
 
     launch: function() {
-        this.first_day = '2012-10-21',
-        this.last_day = '2012-11-21',
+        this.title = "Test Case Results Last 30 days";
+        this.first_day = Rally.util.DateTime.toIsoString( Rally.util.DateTime.add( new Date(), "day", -30 ));
+        this.last_day = Rally.util.DateTime.toIsoString( new Date(), false );
         this._getVerdictNames();
     },
     _getVerdictNames: function() {
@@ -24,7 +25,6 @@ Ext.define('CustomApp', {
         });
     },
     _getTestResults: function() {
-    	console.log( "_getTestResults()" );
     	Ext.create('Rally.data.WsapiDataStore', {
     		model: 'TestCase',
     		listeners: {
@@ -33,7 +33,6 @@ Ext.define('CustomApp', {
     				var that = this;
     				var tc_result_counts = {};
     				Ext.Array.each( data, function( tc ) {
-    					console.log( tc );
     					tc_result_counts[ tc.data.FormattedID ] = that.getVerdictsByDay(tc.data.Results, Rally.util.DateTime.toIsoString(tc.data.CreationDate, false)); 
     				});
     				var tc_result_counts_by_date = that.getResultCountsByDate( tc_result_counts );
@@ -135,7 +134,7 @@ Ext.define('CustomApp', {
         var chart = Ext.create( 'Rally.ui.chart.Chart', {
             chartConfig: {
                 chart: {},
-                title: { text: 'Number of Test Case Results', align: 'center' },
+                title: { text:  this.title, align: 'center' },
                 xAxis: { type: 'datetime' },
                 plotOptions: { column: { stacking: 'normal' } },
                 series: series_array
