@@ -5,7 +5,7 @@ Ext.define('CustomApp', {
     items: [ 
         {xtype: 'container', itemId: 'selector_box', padding: 10 },
         {xtype: 'container', itemId: 'chart_box'}, 
-        {xtype:'container',itemId:'table_box'} 
+        {xtype:'container',itemId:'table_box', padding: 10 } 
     ],
     valid_verdicts: [ "Not Run" ],
     timebox: null,
@@ -16,8 +16,8 @@ Ext.define('CustomApp', {
     },
     _set30Days: function() {
         this.title = "Test Case Results Last 30 days";
-        this.first_day = Rally.util.DateTime.toIsoString( Rally.util.DateTime.add( new Date(), "day", -30 ));
-        this.last_day = Rally.util.DateTime.toIsoString( new Date(), false );
+        this.first_day = Rally.util.DateTime.toIsoString( Rally.util.DateTime.add( new Date(), "day", -30 ), true).replace(/T[\W\w]*/,"");
+        this.last_day = Rally.util.DateTime.toIsoString( new Date(), false ).replace(/T[\W\w]*/,"");
     },
     _addSelectors: function() {
         var that = this;
@@ -25,7 +25,8 @@ Ext.define('CustomApp', {
             fields: ['name'],
             data: [
             { 'name': '30 days' },
-            { 'name': 'Iteration' }
+            { 'name': 'Iteration' },
+            { 'name': 'Release' }
             ]
         });
         this.down('#selector_box').add(Ext.create('Ext.form.ComboBox', {
@@ -52,7 +53,7 @@ Ext.define('CustomApp', {
                 value: null,
                 listeners: {
                     ready: function( field ) {
-                        console.log( field.getRecord() );
+                        
                         that.timebox = field.getRecord().data;
                         that.title = "Test Case Results by Iteration: " + that.timebox.Name;
                         that.first_day =  Rally.util.DateTime.toIsoString( that.timebox.StartDate ) ;
@@ -60,7 +61,6 @@ Ext.define('CustomApp', {
                         that._getTestResults();
                     },
                     change: function( field, newValue, oldValue, eOpts ) {
-                        console.log( field.getRecord() );
                         
                         that.timebox = field.getRecord().data;
                         that.title = "Test Case Results by Iteration: " + that.timebox.Name;
@@ -70,8 +70,34 @@ Ext.define('CustomApp', {
                     }
                 }
             });
+
 	        
 	        this.down('#selector_box').add(this.subselector);
+        } else if ( rangeType == "Release" ) {
+	        this.subselector = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
+	            value: null,
+	            listeners: {
+	                ready: function( field ) {
+	                    console.log( field.getRecord() );
+	                    
+	                    that.timebox = field.getRecord().data;
+	                    that.title = "Test Case Results by Release: " + that.timebox.Name;
+	                    that.first_day =  Rally.util.DateTime.toIsoString( that.timebox.ReleaseStartDate ) ;
+	                    that.last_day =  Rally.util.DateTime.toIsoString( that.timebox.ReleaseDate );
+	                    that._getTestResults();
+	                },
+	                change: function( field, newValue, oldValue, eOpts ) {
+	                    console.log( field.getRecord() );
+	                    
+	                    that.timebox = field.getRecord().data;
+	                    that.title = "Test Case Results by Release: " + that.timebox.Name;
+	                    that.first_day =  Rally.util.DateTime.toIsoString( that.timebox.ReleaseStartDate ) ;
+	                    that.last_day =  Rally.util.DateTime.toIsoString( that.timebox.ReleaseDate );
+	                    that._getTestResults();
+	                }
+	            }
+	        });
+            this.down('#selector_box').add(this.subselector);
         } else {
             this.timebox = null;
             this._set30Days();
@@ -113,7 +139,6 @@ Ext.define('CustomApp', {
     		listeners: {
     			scope: this,
     			load: function(store,data,success) {
-                    console.log( this.first_day, this.last_day );
     				var tc_result_counts = {};
     				Ext.Array.each( data, function( tc ) {
                         if ( that.isTestCaseInTimebox(tc,that.timebox) ) {
@@ -122,6 +147,7 @@ Ext.define('CustomApp', {
                     });
     				var tc_result_counts_by_date = that.getResultCountsByDate( tc_result_counts );
                     that.makeChart(tc_result_counts_by_date);
+                    that.makeTable(tc_result_counts_by_date);
     			}
     		},
     		fetch: ['Name','FormattedID','Results','Date','Verdict','CreationDate','Iteration','Release','WorkProduct'],
@@ -130,10 +156,11 @@ Ext.define('CustomApp', {
     },
     isTestCaseInTimebox: function( tc, timebox ) {
         var result = false;
-        console.log( timebox, tc );
         if ( !timebox ) {
             result = true;
         } else if ( timebox.Name && tc.data.WorkProduct && tc.data.WorkProduct.Iteration && tc.data.WorkProduct.Iteration.Name == timebox.Name ) {
+            result = true;
+        } else if ( timebox.Name && tc.data.WorkProduct && tc.data.WorkProduct.Release && tc.data.WorkProduct.Release.Name == timebox.Name ) {
             result = true;
         }
         return result;
@@ -199,8 +226,43 @@ Ext.define('CustomApp', {
     	}
     	return filled_day;
     },
+
+    makeTable: function(tc_result_counts_by_date) {
+        if ( this.table ) { this.table.destroy(); }
+        var table_data = [];
+        var columns = [{ text: 'Date', dataIndex: 'RunDate' }];
+        var data_template = {};
+        Ext.Array.each( this.valid_verdicts, function(verdict) {
+            columns.push({ text: verdict, dataIndex: verdict });
+            data_template[ verdict ] = 0;
+        });
+        
+        for ( var run_date in tc_result_counts_by_date ) {
+            if (tc_result_counts_by_date.hasOwnProperty(run_date) ) {
+                var data_item = Ext.clone( data_template );
+                data_item['RunDate'] = run_date;
+                var counts = tc_result_counts_by_date[run_date];
+                Ext.Array.each( this.valid_verdicts, function(verdict) {
+                    if ( counts[verdict] ) {
+                        data_item[verdict] = counts[verdict];
+                    }
+                });
+                table_data.push(data_item);
+            }
+        }
+        console.log( table_data );
+        console.log( columns );
+        var table_store = Ext.create('Rally.data.custom.Store', {
+            data: table_data
+        });
+        
+        this.table = Ext.create('Rally.ui.grid.Grid',{
+            store: table_store,
+            columnCfgs: columns
+        });
+        this.down('#table_box').add(this.table);
+    },
     makeChart: function(tc_result_counts_by_date) {
-        // switch to an array of series(es?)
         var series = {};
         var series_array = [];
         Ext.Array.each( this.valid_verdicts, function(verdict) {
@@ -227,7 +289,7 @@ Ext.define('CustomApp', {
                 series_array.push(series[i]);
             }
         }
-        console.log(series);
+        console.log(tc_result_counts_by_date,series_array);
         if ( this.chart ) { this.chart.destroy(); }
         this.chart = Ext.create( 'Rally.ui.chart.Chart', {
             chartConfig: {
