@@ -3,12 +3,18 @@ Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     items: [ 
-        {xtype: 'container', itemId: 'selector_box', padding: 10 },
+	    { xtype: 'container', padding: 10, layout: { type: 'hbox' }, items: [
+            {xtype: 'container', itemId: 'selector_box' },
+            {xtype: 'container', itemId: 'tag_box' }
+	    ]
+	    },
+        
         {xtype: 'container', itemId: 'chart_box'}, 
         {xtype:'container',itemId:'table_box', padding: 10 } 
     ],
     valid_verdicts: [ "Not Run" ],
     timebox: null,
+    selected_tags: [],
     launch: function() {
         this._set30Days();
         this._addSelectors();
@@ -39,6 +45,14 @@ Ext.define('CustomApp', {
             listeners: {
                 change: function( field, newValue, oldValue, opts ) {
                     that._addSubSelector(newValue);
+                }
+            }
+        }));
+        this.down('#tag_box').add(Ext.create('Rally.ui.picker.TagPicker',{
+            listeners: {
+                selectionchange: function( field, values, options ) {
+                    that.selected_tags = values;
+                    that._getTestResults();
                 }
             }
         }));
@@ -123,16 +137,55 @@ Ext.define('CustomApp', {
         }
     },
     _getTestResults: function() {
-        var filters = [];
+        var filters = null;
         var that = this;
+        
+        this.title = this.title.replace(/ \(Only tags[\W\w]*/,"");
+        
         if ( this.timebox ) {
             // can't limit test cases by timebox here, but can limit how much data we get back.
-            filters = [{
+            filters = Ext.create('Rally.data.QueryFilter', {
                 property: 'WorkProduct.ObjectID',
                 operator: ">",
                 value: 0
-            }];
+            });
         }
+        
+        if ( this.selected_tags.length > 0 ) {
+            var tags = this.selected_tags;
+            console.log( "tags", tags );
+            var tag_filter = null;
+            
+            Ext.Array.each( tags, function(tag) {
+                console.log( "tag", tag._ref );
+                if ( ! tag_filter ) {
+                     that.title += " (Only tags: " + tag.Name;
+                    tag_filter = Ext.create('Rally.data.QueryFilter', {
+		                property: 'Tags', 
+		                operator: 'contains', 
+		                value: tag._ref 
+		            });
+                } else {
+                    that.title += ", " + tag.Name;
+	                tag_filter = tag_filter.or(Ext.create('Rally.data.QueryFilter', {
+	                    property: 'Tags', 
+	                    operator: 'contains', 
+	                    value: tag._ref
+	                }));
+                }
+            });
+
+            that.title += ")";
+            if ( !filters ) {
+                filters = tag_filter;
+            } else {
+                filters = filters.and( tag_filter );
+            }
+            console.log( filters.toString());
+        }
+        
+        if ( filters === null ) { filters = []; }
+        
     	Ext.create('Rally.data.WsapiDataStore', {
     		model: 'TestCase',
             filters: filters,
