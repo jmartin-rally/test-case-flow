@@ -4,8 +4,9 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     items: [ 
 	    { xtype: 'container', padding: 10, layout: { type: 'hbox' }, items: [
-            {xtype: 'container', itemId: 'selector_box' },
-            {xtype: 'container', itemId: 'tag_box' }
+            {xtype: 'container', itemId: 'selector_box', padding: 5 },
+            {xtype: 'container', itemId: 'tag_box', padding: 5 },
+            {xtype: 'container', itemId: 'type_box', padding: 5 }
 	    ]
 	    },
         
@@ -15,6 +16,10 @@ Ext.define('CustomApp', {
     valid_verdicts: [ "Not Run" ],
     timebox: null,
     selected_tags: [],
+    other_selections: {
+        'Type': null,
+        'Priority': null
+    },
     launch: function() {
         this._set30Days();
         this._addSelectors();
@@ -49,10 +54,50 @@ Ext.define('CustomApp', {
             }
         }));
         this.down('#tag_box').add(Ext.create('Rally.ui.picker.TagPicker',{
+            fieldLabel: 'Tag(s):',
+            labelAlign: 'right',
             listeners: {
                 selectionchange: function( field, values, options ) {
                     that.selected_tags = values;
                     that._getTestResults();
+                }
+            }
+        }));
+
+        this._addDropdownWithAll('Type', 'type_box');
+    },
+    _addDropdownWithAll: function( fieldName, elementName ) {
+	    var all_value = { 
+	        name: '-- All --',
+	        value: '-- All --'
+	    };
+
+        this.down('#'+elementName).add(Ext.create('Rally.ui.combobox.AttributeComboBox',{
+            model: 'TestCase',
+            field: fieldName,
+            valueNotFoundText: "buh",
+            itemId: elementName + "_drop",
+            fieldLabel: fieldName + ":",
+            labelAlign: "right",
+            // TODO: add listener
+            // TODO: add <<All>>
+            listeners: {
+                change: function( box, newValue, oldValue, options ) {
+                    console.log( "change", newValue );
+                    this.other_selections[fieldName] = newValue;
+                    this._getTestResults();
+                },
+                scope: this
+            },
+            storeConfig: {
+                autoLoad: true,
+                listeners: {
+                    load: function(store,records) {
+                        console.log( "type store", store);
+                        store.insert(0,all_value);
+                        this.down('#' + elementName + '_drop').setValue(all_value.value);
+                    },
+                    scope: this
                 }
             }
         }));
@@ -153,7 +198,6 @@ Ext.define('CustomApp', {
         
         if ( this.selected_tags.length > 0 ) {
             var tags = this.selected_tags;
-            console.log( "tags", tags );
             var tag_filter = null;
             
             Ext.Array.each( tags, function(tag) {
@@ -181,10 +225,24 @@ Ext.define('CustomApp', {
             } else {
                 filters = filters.and( tag_filter );
             }
-            console.log( filters.toString());
         }
         
-        if ( filters === null ) { filters = []; }
+        if ( this.other_selections.Type && this.other_selections.Type !== "-- All --" ) {
+            if ( !filters ) {
+                filters = Ext.create( 'Rally.data.QueryFilter',{
+                    property: 'Type',
+                    operator: '=',
+                    value: that.other_selections.Type
+                });
+            } else {
+                filters = filters.and(Ext.create( 'Rally.data.QueryFilter',{
+                    property: 'Type',
+                    operator: '=',
+                    value: that.other_selections.Type
+                }));
+            }
+        }
+        if ( filters === null ) { filters = []; } else { console.log( filters.toString()); }
         
     	Ext.create('Rally.data.WsapiDataStore', {
     		model: 'TestCase',
