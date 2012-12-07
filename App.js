@@ -4,12 +4,13 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     items: [ 
 	    { xtype: 'container', padding: 10, layout: { type: 'hbox' }, items: [
-            {xtype: 'container', itemId: 'selector_box', padding: 5 },
+        { xtype: 'container', layout: { type: 'vbox' }, items: [
             {xtype: 'container', itemId: 'tag_box', padding: 5 },
-            {xtype: 'container', itemId: 'type_box', padding: 5 },
-            {xtype: 'container', itemId: 'priority_box', padding: 5 }
-	    ]
-	    },
+	            {xtype: 'container', itemId: 'type_box', padding: 5 },
+	            {xtype: 'container', itemId: 'priority_box', padding: 5 }
+            ]},
+            {xtype: 'container', itemId: 'selector_box', padding: 5 }
+	    ]},
         
         {xtype: 'container', itemId: 'chart_box'}, 
         {xtype:'container',itemId:'table_box', padding: 10 } 
