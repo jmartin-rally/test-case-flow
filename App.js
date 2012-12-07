@@ -6,7 +6,8 @@ Ext.define('CustomApp', {
 	    { xtype: 'container', padding: 10, layout: { type: 'hbox' }, items: [
             {xtype: 'container', itemId: 'selector_box', padding: 5 },
             {xtype: 'container', itemId: 'tag_box', padding: 5 },
-            {xtype: 'container', itemId: 'type_box', padding: 5 }
+            {xtype: 'container', itemId: 'type_box', padding: 5 },
+            {xtype: 'container', itemId: 'priority_box', padding: 5 }
 	    ]
 	    },
         
@@ -65,6 +66,7 @@ Ext.define('CustomApp', {
         }));
 
         this._addDropdownWithAll('Type', 'type_box');
+        this._addDropdownWithAll('Priority', 'priority_box');
     },
     _addDropdownWithAll: function( fieldName, elementName ) {
 	    var all_value = { 
@@ -242,6 +244,23 @@ Ext.define('CustomApp', {
                 }));
             }
         }
+        
+        if ( this.other_selections.Priority && this.other_selections.Priority !== "-- All --" ) {
+            if ( !filters ) {
+                filters = Ext.create( 'Rally.data.QueryFilter',{
+                    property: 'Priority',
+                    operator: '=',
+                    value: that.other_selections.Priority
+                });
+            } else {
+                filters = filters.and(Ext.create( 'Rally.data.QueryFilter',{
+                    property: 'Priority',
+                    operator: '=',
+                    value: that.other_selections.Priority
+                }));
+            }
+        }
+        
         if ( filters === null ) { filters = []; } else { console.log( filters.toString()); }
         
     	Ext.create('Rally.data.WsapiDataStore', {
